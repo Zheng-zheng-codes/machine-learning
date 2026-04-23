@@ -27,7 +27,6 @@ plt.title("Loss Curve Comparison")
 plt.legend()
 plt.grid(True)
 
-# 🔥关键：保存图片
 plt.savefig("loss_curve.png", dpi=300)
 
 print("已生成 loss_curve.png")

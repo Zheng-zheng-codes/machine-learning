@@ -50,6 +50,10 @@ test_loader=DataLoader(
     shuffle=False
 )
 
+LR=0.001#学习率
+epochs=10#训练轮数
+epoch_list=list(range(1,epochs+1))
+
 #模型构建
 class CNN(nn.Module):
     def __init__(self,act):
@@ -86,6 +90,11 @@ acts={
     "Tanh":nn.Tanh(),
     "ELU":nn.ELU(),
 }
+loss_ReLU=[]
+loss_GELU=[]
+loss_Tanh=[]
+loss_ELU=[]
+result={}
 
 #训练函数
 def train(model,loader,optimizer,criterion,device):
@@ -102,6 +111,7 @@ def train(model,loader,optimizer,criterion,device):
         total_loss+=loss.item()
     avg_loss=total_loss/len(loader)
     print(f"Loss={avg_loss:.6f}")
+    return avg_loss
 
 #测试函数
 def test(model,loader,device):
@@ -118,8 +128,44 @@ def test(model,loader,device):
             total+=y.size(0)
     return correct/total
 
-LR=0.001#学习率
-epochs=10#训练轮数
+#绘图
+def print_loss():
+    plt.figure()
+
+    plt.plot(epoch_list,loss_ReLU,color='red',marker='o',label='ReLU')
+    plt.plot(epoch_list,loss_GELU,color='blue',marker='s',label='GELU')
+    plt.plot(epoch_list,loss_Tanh,color='green',marker='^',label='Tanh')
+    plt.plot(epoch_list,loss_ELU,color='orange',marker='d',label='ELU')
+
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Loss Comparison')
+
+    plt.legend()
+    plt.grid(True,linestyle='--',alpha=0.5)
+
+    plt.savefig('loss_origin.png',dpi=300)
+    plt.show()
+
+def print_acc():
+    plt.figure()
+
+    names=list(result.keys())
+    acc=list(result.values())
+
+    plt.bar(names,acc,color=['red','blue','green','orange'],edgecolor='black')
+    
+    plt.xlabel('Activation Function')
+    plt.ylabel('Accuracy')
+    plt.title('Accuracy Comparison')
+
+    plt.ylim(0.98,1.0)
+    plt.grid(axis='y',linestyle='--',alpha=0.5)
+    for i,v in enumerate(acc):
+        plt.text(i,v+0.0002,f"{v:.4f}",ha='center')
+
+    plt.savefig('acc_origin.png',dpi=300)
+    plt.show()
 
 if __name__=="__main__":
     device="cpu"
@@ -130,6 +176,24 @@ if __name__=="__main__":
         print(f"激活函数：{name}")
         for epoch in range(1,epochs+1):
             print(f"第{epoch}轮训练:")
-            train(model,train_loader,optimizer,criterion,device)
+            loss=train(model,train_loader,optimizer,criterion,device)
+            if name=="ReLU":
+                loss_ReLU.append(loss)
+            elif name=="GELU":
+                loss_GELU.append(loss)
+            elif name=="Tanh":
+                loss_Tanh.append(loss)
+            elif name=="ELU":
+                loss_ELU.append(loss)
         acc=test(model,test_loader,device)
-        print(f"准确率：{acc}\n")
+        if name=="ReLU":
+            result["ReLU"]=acc
+        elif name=="GELU":
+            result["GELU"]=acc
+        elif name=="Tanh":
+            result["Tanh"]=acc
+        elif name=="ELU":
+            result["ELU"]=acc
+        print(f"{name}准确率：{acc}\n")
+    print_loss()
+    print_acc()

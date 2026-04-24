@@ -1,3 +1,4 @@
+#这个代码是基于老师的设计没有改动
 import torch
 import torch.nn as nn
 from torchvision import datasets,transforms

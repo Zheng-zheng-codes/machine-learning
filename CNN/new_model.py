@@ -1,3 +1,4 @@
+#这个代码在老师的设计基础上修改了卷积核大小、卷积核数量、卷积层数
 import torch
 import torch.nn as nn
 from torchvision import datasets,transforms
@@ -55,6 +56,7 @@ epochs=10#训练轮数
 epoch_list=list(range(1,epochs+1))
 
 #模型构建
+#对于卷积核的大小、个数、层数都有优化
 class CNN(nn.Module):
     def __init__(self,act):
         super().__init__()

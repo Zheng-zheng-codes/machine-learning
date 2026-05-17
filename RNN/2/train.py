@@ -12,7 +12,7 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 
 from dataset import get_dataloaders
-from model import LSTMClassifier, count_parameters
+from model import LSTMClassifier, GRUClassifier, count_parameters
 
 
 # =========================
@@ -22,6 +22,7 @@ def set_seed(seed=42):
     """
     固定随机种子，使实验结果尽量可复现。
     """
+
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -37,10 +38,6 @@ def set_seed(seed=42):
 def train_one_epoch(model, train_loader, criterion, optimizer, device):
     """
     训练模型一个 epoch。
-
-    返回：
-    avg_loss: 当前 epoch 平均训练损失
-    train_acc: 当前 epoch 训练准确率
     """
 
     model.train()
@@ -81,10 +78,6 @@ def train_one_epoch(model, train_loader, criterion, optimizer, device):
 def evaluate(model, test_loader, criterion, device):
     """
     在测试集上评估模型。
-
-    返回：
-    avg_loss: 测试集平均损失
-    test_acc: 测试集准确率
     """
 
     model.eval()
@@ -115,11 +108,11 @@ def evaluate(model, test_loader, criterion, device):
 
 
 # =========================
-# 3. 完整训练一个模型
+# 3. 训练指定模型
 # =========================
 def run_experiment(
     model_name,
-    bidirectional,
+    model_class,
     train_loader,
     test_loader,
     vocab_size,
@@ -128,27 +121,23 @@ def run_experiment(
     embed_dim=128,
     hidden_dim=256,
     num_layers=1,
+    num_classes=4,
     learning_rate=1e-3
 ):
     """
     训练并测试一个模型。
-
-    参数：
-    model_name: 模型名称，例如 LSTM / Bi-LSTM
-    bidirectional: 是否为双向 LSTM
     """
 
     print("\n" + "=" * 70)
     print(f"开始训练模型：{model_name}")
     print("=" * 70)
 
-    model = LSTMClassifier(
+    model = model_class(
         vocab_size=vocab_size,
         embed_dim=embed_dim,
         hidden_dim=hidden_dim,
         num_layers=num_layers,
-        num_classes=2,
-        bidirectional=bidirectional,
+        num_classes=num_classes,
         dropout=0.5,
         pad_idx=0
     ).to(device)
@@ -210,9 +199,6 @@ def run_experiment(
     avg_epoch_time = sum(epoch_times) / len(epoch_times)
     final_test_acc = test_accs[-1]
 
-    # =========================
-    # 保存训练好的模型
-    # =========================
     os.makedirs("checkpoints", exist_ok=True)
 
     save_path = f"checkpoints/{model_name}.pth"
@@ -222,15 +208,12 @@ def run_experiment(
             "model_name": model_name,
             "model_state_dict": model.state_dict(),
 
-            # 模型结构参数
             "vocab_size": vocab_size,
             "embed_dim": embed_dim,
             "hidden_dim": hidden_dim,
             "num_layers": num_layers,
-            "num_classes": 2,
-            "bidirectional": bidirectional,
+            "num_classes": num_classes,
 
-            # 实验结果
             "params": params,
             "final_test_acc": final_test_acc,
             "avg_epoch_time": avg_epoch_time,
@@ -264,18 +247,16 @@ def run_experiment(
 # =========================
 # 4. 绘图函数
 # =========================
-def plot_results(lstm_result, bilstm_result, epochs):
+def plot_results(lstm_result, gru_result, epochs):
     """
-    绘制 LSTM 与 Bi-LSTM 的实验结果对比图。
+    绘制 LSTM 与 GRU 的实验结果对比图。
     """
-
-    epoch_list = list(range(1, epochs + 1))
 
     os.makedirs("figures", exist_ok=True)
 
-    # =========================
-    # 图 1：训练损失曲线
-    # =========================
+    epoch_list = list(range(1, epochs + 1))
+
+    # 图 1：训练损失
     plt.figure(figsize=(8, 5))
 
     plt.plot(
@@ -287,9 +268,9 @@ def plot_results(lstm_result, bilstm_result, epochs):
 
     plt.plot(
         epoch_list,
-        bilstm_result["train_losses"],
+        gru_result["train_losses"],
         marker="s",
-        label="Bi-LSTM"
+        label="GRU"
     )
 
     plt.xlabel("Epoch")
@@ -306,9 +287,7 @@ def plot_results(lstm_result, bilstm_result, epochs):
 
     plt.show()
 
-    # =========================
-    # 图 2：测试准确率曲线
-    # =========================
+    # 图 2：测试准确率
     plt.figure(figsize=(8, 5))
 
     plt.plot(
@@ -320,9 +299,9 @@ def plot_results(lstm_result, bilstm_result, epochs):
 
     plt.plot(
         epoch_list,
-        [acc * 100 for acc in bilstm_result["test_accs"]],
+        [acc * 100 for acc in gru_result["test_accs"]],
         marker="s",
-        label="Bi-LSTM"
+        label="GRU"
     )
 
     plt.xlabel("Epoch")
@@ -339,9 +318,7 @@ def plot_results(lstm_result, bilstm_result, epochs):
 
     plt.show()
 
-    # =========================
-    # 图 3：每轮训练时间柱状图
-    # =========================
+    # 图 3：每轮训练时间
     x = np.arange(epochs)
     width = 0.35
 
@@ -356,9 +333,9 @@ def plot_results(lstm_result, bilstm_result, epochs):
 
     plt.bar(
         x + width / 2,
-        bilstm_result["epoch_times"],
+        gru_result["epoch_times"],
         width=width,
-        label="Bi-LSTM"
+        label="GRU"
     )
 
     plt.xlabel("Epoch")
@@ -376,14 +353,11 @@ def plot_results(lstm_result, bilstm_result, epochs):
 
     plt.show()
 
-    # =========================
-    # 图 4：模型参数量柱状图
-    # =========================
-    model_names = ["LSTM", "Bi-LSTM"]
-
+    # 图 4：参数量对比
+    model_names = ["LSTM", "GRU"]
     params = [
         lstm_result["params"],
-        bilstm_result["params"]
+        gru_result["params"]
     ]
 
     plt.figure(figsize=(7, 5))
@@ -427,16 +401,13 @@ def plot_results(lstm_result, bilstm_result, epochs):
 # =========================
 # 5. 保存实验结果到 CSV
 # =========================
-def save_results_to_csv(lstm_result, bilstm_result, epochs):
+def save_results_to_csv(lstm_result, gru_result, epochs):
     """
-    保存最终结果和每轮训练结果到 CSV 文件。
+    保存最终结果和每轮训练结果到 CSV。
     """
 
     os.makedirs("results", exist_ok=True)
 
-    # =========================
-    # 1. 保存最终对比结果
-    # =========================
     final_results = pd.DataFrame([
         {
             "Model": lstm_result["model_name"],
@@ -447,12 +418,12 @@ def save_results_to_csv(lstm_result, bilstm_result, epochs):
             "Model_Save_Path": lstm_result["save_path"]
         },
         {
-            "Model": bilstm_result["model_name"],
-            "Parameters": bilstm_result["params"],
-            "Final_Test_Accuracy": bilstm_result["final_test_acc"],
-            "Final_Test_Accuracy_Percent": bilstm_result["final_test_acc"] * 100,
-            "Average_Epoch_Time": bilstm_result["avg_epoch_time"],
-            "Model_Save_Path": bilstm_result["save_path"]
+            "Model": gru_result["model_name"],
+            "Parameters": gru_result["params"],
+            "Final_Test_Accuracy": gru_result["final_test_acc"],
+            "Final_Test_Accuracy_Percent": gru_result["final_test_acc"] * 100,
+            "Average_Epoch_Time": gru_result["avg_epoch_time"],
+            "Model_Save_Path": gru_result["save_path"]
         }
     ])
 
@@ -462,9 +433,6 @@ def save_results_to_csv(lstm_result, bilstm_result, epochs):
         encoding="utf-8-sig"
     )
 
-    # =========================
-    # 2. 保存每个 epoch 的详细结果
-    # =========================
     epoch_results = []
 
     for i in range(epochs):
@@ -481,15 +449,15 @@ def save_results_to_csv(lstm_result, bilstm_result, epochs):
         })
 
         epoch_results.append({
-            "Model": "Bi-LSTM",
+            "Model": "GRU",
             "Epoch": i + 1,
-            "Train_Loss": bilstm_result["train_losses"][i],
-            "Train_Accuracy": bilstm_result["train_accs"][i],
-            "Train_Accuracy_Percent": bilstm_result["train_accs"][i] * 100,
-            "Test_Loss": bilstm_result["test_losses"][i],
-            "Test_Accuracy": bilstm_result["test_accs"][i],
-            "Test_Accuracy_Percent": bilstm_result["test_accs"][i] * 100,
-            "Epoch_Time": bilstm_result["epoch_times"][i]
+            "Train_Loss": gru_result["train_losses"][i],
+            "Train_Accuracy": gru_result["train_accs"][i],
+            "Train_Accuracy_Percent": gru_result["train_accs"][i] * 100,
+            "Test_Loss": gru_result["test_losses"][i],
+            "Test_Accuracy": gru_result["test_accs"][i],
+            "Test_Accuracy_Percent": gru_result["test_accs"][i] * 100,
+            "Epoch_Time": gru_result["epoch_times"][i]
         })
 
     epoch_results = pd.DataFrame(epoch_results)
@@ -511,45 +479,33 @@ def save_results_to_csv(lstm_result, bilstm_result, epochs):
 def main():
     set_seed(42)
 
-    # =========================
-    # 实验超参数
-    # =========================
     batch_size = 64
-    max_len = 256
+    max_len = 128
     max_vocab_size = 20000
 
     embed_dim = 128
     hidden_dim = 256
     num_layers = 1
+    num_classes = 4
 
     learning_rate = 1e-3
     epochs = 5
 
-    # =========================
-    # 选择设备
-    # =========================
     device = torch.device(
         "cuda" if torch.cuda.is_available() else "cpu"
     )
 
     print("当前使用设备:", device)
 
-    # =========================
-    # 加载数据
-    # =========================
     train_loader, test_loader, vocab_size, word2idx = get_dataloaders(
-        csv_path="data/IMDB Dataset.csv",
+        data_dir="data",
         batch_size=batch_size,
         max_len=max_len,
         max_vocab_size=max_vocab_size,
         min_freq=2,
-        test_size=0.2,
         random_state=42
     )
 
-    # =========================
-    # 保存词表
-    # =========================
     os.makedirs("checkpoints", exist_ok=True)
 
     with open("checkpoints/word2idx.json", "w", encoding="utf-8") as f:
@@ -561,12 +517,9 @@ def main():
     print("训练 batch 数量:", len(train_loader))
     print("测试 batch 数量:", len(test_loader))
 
-    # =========================
-    # 训练单向 LSTM
-    # =========================
     lstm_result = run_experiment(
         model_name="LSTM",
-        bidirectional=False,
+        model_class=LSTMClassifier,
         train_loader=train_loader,
         test_loader=test_loader,
         vocab_size=vocab_size,
@@ -575,15 +528,13 @@ def main():
         embed_dim=embed_dim,
         hidden_dim=hidden_dim,
         num_layers=num_layers,
+        num_classes=num_classes,
         learning_rate=learning_rate
     )
 
-    # =========================
-    # 训练双向 Bi-LSTM
-    # =========================
-    bilstm_result = run_experiment(
-        model_name="Bi-LSTM",
-        bidirectional=True,
+    gru_result = run_experiment(
+        model_name="GRU",
+        model_class=GRUClassifier,
         train_loader=train_loader,
         test_loader=test_loader,
         vocab_size=vocab_size,
@@ -592,12 +543,10 @@ def main():
         embed_dim=embed_dim,
         hidden_dim=hidden_dim,
         num_layers=num_layers,
+        num_classes=num_classes,
         learning_rate=learning_rate
     )
 
-    # =========================
-    # 输出实验结果对比表
-    # =========================
     print("\n" + "=" * 70)
     print("实验结果对比")
     print("=" * 70)
@@ -619,45 +568,38 @@ def main():
     )
 
     print(
-        f"{bilstm_result['model_name']:<12}"
-        f"{bilstm_result['params']:<15}"
-        f"{bilstm_result['final_test_acc'] * 100:<20.2f}"
-        f"{bilstm_result['avg_epoch_time']:<18.2f}"
+        f"{gru_result['model_name']:<12}"
+        f"{gru_result['params']:<15}"
+        f"{gru_result['final_test_acc'] * 100:<20.2f}"
+        f"{gru_result['avg_epoch_time']:<18.2f}"
     )
 
     print("=" * 70)
 
-    # =========================
-    # 保存 CSV 结果
-    # =========================
     save_results_to_csv(
         lstm_result=lstm_result,
-        bilstm_result=bilstm_result,
+        gru_result=gru_result,
         epochs=epochs
     )
 
-    # =========================
-    # 自动生成文字结论
-    # =========================
-    if bilstm_result["final_test_acc"] > lstm_result["final_test_acc"]:
-        print("结论1：Bi-LSTM 的最终测试准确率更高，说明双向结构能够利用更充分的上下文信息。")
+    if gru_result["final_test_acc"] > lstm_result["final_test_acc"]:
+        print("结论1：GRU 的最终测试准确率更高，说明在当前实验设置下 GRU 对 AG News 分类效果更好。")
     else:
-        print("结论1：单向 LSTM 的最终测试准确率更高或与 Bi-LSTM 接近，说明当前实验设置下双向结构优势不明显。")
+        print("结论1：LSTM 的最终测试准确率更高或与 GRU 接近。")
 
-    if bilstm_result["avg_epoch_time"] > lstm_result["avg_epoch_time"]:
-        print("结论2：Bi-LSTM 的平均每轮训练时间更长，说明双向结构带来了更高的计算开销。")
+    if gru_result["avg_epoch_time"] < lstm_result["avg_epoch_time"]:
+        print("结论2：GRU 的平均每轮训练时间更短，说明 GRU 结构更简洁，训练效率更高。")
     else:
-        print("结论2：Bi-LSTM 的平均训练时间没有明显增加。")
+        print("结论2：GRU 的平均训练时间没有明显低于 LSTM。")
 
-    if bilstm_result["params"] > lstm_result["params"]:
-        print("结论3：Bi-LSTM 的参数量更多，因为它同时包含正向和反向两个 LSTM。")
+    if gru_result["params"] < lstm_result["params"]:
+        print("结论3：GRU 的参数量更少，因为 GRU 只有更新门和重置门，结构比 LSTM 更简化。")
+    else:
+        print("结论3：当前实现下 GRU 参数量没有明显少于 LSTM。")
 
-    # =========================
-    # 绘制可视化对比图
-    # =========================
     plot_results(
         lstm_result=lstm_result,
-        bilstm_result=bilstm_result,
+        gru_result=gru_result,
         epochs=epochs
     )
 

@@ -1,0 +1,3 @@
+﻿Model,Parameters,Final_Test_Accuracy,Final_Test_Accuracy_Percent,Average_Epoch_Time,Model_Save_Path
+LSTM,2955778,0.8908,89.08,1830.7816250801086,checkpoints/LSTM.pth
+Bi-LSTM,3351554,0.8826,88.26,3764.437181758881,checkpoints/Bi-LSTM.pth

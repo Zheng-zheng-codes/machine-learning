@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch.nn.utils.rnn import pack_padded_sequence
 
 
 # =========================
@@ -41,8 +42,6 @@ class LSTMClassifier(nn.Module):
         # =========================
         # 1. 词嵌入层
         # =========================
-        # 输入: [batch_size, seq_len]
-        # 输出: [batch_size, seq_len, embed_dim]
         self.embedding = nn.Embedding(
             num_embeddings=vocab_size,
             embedding_dim=embed_dim,
@@ -52,7 +51,6 @@ class LSTMClassifier(nn.Module):
         # =========================
         # 2. LSTM 层
         # =========================
-        # batch_first=True 表示输入输出的第一维是 batch_size
         self.lstm = nn.LSTM(
             input_size=embed_dim,
             hidden_size=hidden_dim,
@@ -69,22 +67,21 @@ class LSTMClassifier(nn.Module):
         # =========================
         # 4. 全连接分类层
         # =========================
-        # 单向 LSTM: hidden_dim
-        # 双向 LSTM: hidden_dim * 2
         self.fc = nn.Linear(
             hidden_dim * self.num_directions,
             num_classes
         )
 
-    def forward(self, x):
+    def forward(self, x, lengths):
         """
         前向传播过程。
 
-        x 的形状:
-        [batch_size, seq_len]
+        参数：
+        x: [batch_size, seq_len]
+        lengths: [batch_size]，每条文本真实长度，不包含 padding
 
-        返回:
-        [batch_size, num_classes]
+        返回：
+        logits: [batch_size, num_classes]
         """
 
         # =========================
@@ -95,39 +92,39 @@ class LSTMClassifier(nn.Module):
         embedded = self.embedding(x)
 
         # =========================
-        # 2. 输入 LSTM
+        # 2. 打包序列，让 LSTM 忽略 padding
         # =========================
-        # output: 每个时间步的隐藏状态
-        # hidden: 最后一个时间步的隐藏状态
-        # cell: LSTM 的细胞状态
-        output, (hidden, cell) = self.lstm(embedded)
+        packed_embedded = pack_padded_sequence(
+            embedded,
+            lengths.cpu(),
+            batch_first=True,
+            enforce_sorted=False
+        )
 
         # =========================
-        # 3. 取最终隐藏状态
+        # 3. 输入 LSTM
+        # =========================
+        # hidden: [num_layers * num_directions, batch_size, hidden_dim]
+        packed_output, (hidden, cell) = self.lstm(packed_embedded)
+
+        # =========================
+        # 4. 取最终隐藏状态
         # =========================
         if self.bidirectional:
-            # 双向 LSTM 的 hidden 形状:
-            # [num_layers * 2, batch_size, hidden_dim]
-            #
+            # 双向 LSTM：
             # hidden[-2] 是最后一层正向 LSTM 的最终隐藏状态
             # hidden[-1] 是最后一层反向 LSTM 的最终隐藏状态
-            #
-            # 拼接后:
-            # [batch_size, hidden_dim * 2]
             final_hidden = torch.cat(
                 (hidden[-2], hidden[-1]),
                 dim=1
             )
         else:
-            # 单向 LSTM 的 hidden 形状:
-            # [num_layers, batch_size, hidden_dim]
-            #
-            # hidden[-1]:
-            # [batch_size, hidden_dim]
+            # 单向 LSTM：
+            # hidden[-1] 是最后一层的最终隐藏状态
             final_hidden = hidden[-1]
 
         # =========================
-        # 4. Dropout + 全连接分类
+        # 5. Dropout + 全连接分类
         # =========================
         final_hidden = self.dropout(final_hidden)
 
@@ -162,6 +159,14 @@ if __name__ == "__main__":
         dtype=torch.long
     )
 
+    # 随机生成真实长度，范围为 1 到 seq_len
+    lengths = torch.randint(
+        low=1,
+        high=seq_len + 1,
+        size=(batch_size,),
+        dtype=torch.long
+    )
+
     # =========================
     # 测试单向 LSTM
     # =========================
@@ -174,7 +179,7 @@ if __name__ == "__main__":
         bidirectional=False
     )
 
-    lstm_output = lstm_model(x)
+    lstm_output = lstm_model(x, lengths)
 
     print("单向 LSTM 输出形状:", lstm_output.shape)
     print("单向 LSTM 参数量:", count_parameters(lstm_model))
@@ -191,7 +196,7 @@ if __name__ == "__main__":
         bidirectional=True
     )
 
-    bilstm_output = bilstm_model(x)
+    bilstm_output = bilstm_model(x, lengths)
 
     print("双向 Bi-LSTM 输出形状:", bilstm_output.shape)
     print("双向 Bi-LSTM 参数量:", count_parameters(bilstm_model))

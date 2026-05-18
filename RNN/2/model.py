@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch.nn.utils.rnn import pack_padded_sequence
 
 
 # =========================
@@ -51,15 +52,29 @@ class LSTMClassifier(nn.Module):
             num_classes
         )
 
-    def forward(self, x):
+    def forward(self, x, lengths):
         """
+        前向传播。
+
+        参数：
         x: [batch_size, seq_len]
+        lengths: [batch_size]，每条新闻文本的真实长度
+
+        返回：
+        logits: [batch_size, num_classes]
         """
 
         embedded = self.embedding(x)
         # embedded: [batch_size, seq_len, embed_dim]
 
-        output, (hidden, cell) = self.lstm(embedded)
+        packed_embedded = pack_padded_sequence(
+            embedded,
+            lengths.cpu(),
+            batch_first=True,
+            enforce_sorted=False
+        )
+
+        packed_output, (hidden, cell) = self.lstm(packed_embedded)
 
         # hidden: [num_layers, batch_size, hidden_dim]
         final_hidden = hidden[-1]
@@ -113,15 +128,29 @@ class GRUClassifier(nn.Module):
             num_classes
         )
 
-    def forward(self, x):
+    def forward(self, x, lengths):
         """
+        前向传播。
+
+        参数：
         x: [batch_size, seq_len]
+        lengths: [batch_size]，每条新闻文本的真实长度
+
+        返回：
+        logits: [batch_size, num_classes]
         """
 
         embedded = self.embedding(x)
         # embedded: [batch_size, seq_len, embed_dim]
 
-        output, hidden = self.gru(embedded)
+        packed_embedded = pack_padded_sequence(
+            embedded,
+            lengths.cpu(),
+            batch_first=True,
+            enforce_sorted=False
+        )
+
+        packed_output, hidden = self.gru(packed_embedded)
 
         # hidden: [num_layers, batch_size, hidden_dim]
         final_hidden = hidden[-1]
@@ -160,6 +189,13 @@ if __name__ == "__main__":
         dtype=torch.long
     )
 
+    lengths = torch.randint(
+        low=1,
+        high=seq_len + 1,
+        size=(batch_size,),
+        dtype=torch.long
+    )
+
     lstm_model = LSTMClassifier(
         vocab_size=vocab_size,
         embed_dim=128,
@@ -176,8 +212,8 @@ if __name__ == "__main__":
         num_classes=num_classes
     )
 
-    lstm_output = lstm_model(x)
-    gru_output = gru_model(x)
+    lstm_output = lstm_model(x, lengths)
+    gru_output = gru_model(x, lengths)
 
     print("LSTM 输出形状:", lstm_output.shape)
     print("LSTM 参数量:", count_parameters(lstm_model))

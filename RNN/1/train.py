@@ -49,13 +49,14 @@ def train_one_epoch(model, train_loader, criterion, optimizer, device):
     correct = 0
     total = 0
 
-    for x, y in train_loader:
+    for batch_idx, (x, lengths, y) in enumerate(train_loader):
         x = x.to(device)
+        lengths = lengths.to(device)
         y = y.to(device)
 
         optimizer.zero_grad()
 
-        outputs = model(x)
+        outputs = model(x, lengths)
 
         loss = criterion(outputs, y)
 
@@ -68,6 +69,10 @@ def train_one_epoch(model, train_loader, criterion, optimizer, device):
         preds = torch.argmax(outputs, dim=1)
         correct += (preds == y).sum().item()
         total += y.size(0)
+
+        # 每 50 个 batch 输出一次进度，避免长时间没反馈
+        if (batch_idx + 1) % 50 == 0:
+            print(f"已训练 batch: {batch_idx + 1}/{len(train_loader)}")
 
     avg_loss = total_loss / len(train_loader)
     train_acc = correct / total
@@ -94,11 +99,12 @@ def evaluate(model, test_loader, criterion, device):
     total = 0
 
     with torch.no_grad():
-        for x, y in test_loader:
+        for x, lengths, y in test_loader:
             x = x.to(device)
+            lengths = lengths.to(device)
             y = y.to(device)
 
-            outputs = model(x)
+            outputs = model(x, lengths)
 
             loss = criterion(outputs, y)
 
@@ -515,7 +521,11 @@ def main():
     # 实验超参数
     # =========================
     batch_size = 64
+
+    # 如果电脑比较慢，可以先用 128；想完全按原实验可改回 256
     max_len = 256
+
+    # 如果电脑比较慢，可以先用 10000；想完全按原实验可改回 20000
     max_vocab_size = 20000
 
     embed_dim = 128
@@ -523,6 +533,8 @@ def main():
     num_layers = 1
 
     learning_rate = 1e-3
+
+    # 电脑慢可以先跑 3 轮；想完全按课件要求可改回 5
     epochs = 5
 
     # =========================

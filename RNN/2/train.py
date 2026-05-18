@@ -46,13 +46,14 @@ def train_one_epoch(model, train_loader, criterion, optimizer, device):
     correct = 0
     total = 0
 
-    for x, y in train_loader:
+    for batch_idx, (x, lengths, y) in enumerate(train_loader):
         x = x.to(device)
+        lengths = lengths.to(device)
         y = y.to(device)
 
         optimizer.zero_grad()
 
-        outputs = model(x)
+        outputs = model(x, lengths)
 
         loss = criterion(outputs, y)
 
@@ -65,6 +66,9 @@ def train_one_epoch(model, train_loader, criterion, optimizer, device):
         preds = torch.argmax(outputs, dim=1)
         correct += (preds == y).sum().item()
         total += y.size(0)
+
+        if (batch_idx + 1) % 100 == 0:
+            print(f"已训练 batch: {batch_idx + 1}/{len(train_loader)}")
 
     avg_loss = total_loss / len(train_loader)
     train_acc = correct / total
@@ -87,11 +91,12 @@ def evaluate(model, test_loader, criterion, device):
     total = 0
 
     with torch.no_grad():
-        for x, y in test_loader:
+        for x, lengths, y in test_loader:
             x = x.to(device)
+            lengths = lengths.to(device)
             y = y.to(device)
 
-            outputs = model(x)
+            outputs = model(x, lengths)
 
             loss = criterion(outputs, y)
 

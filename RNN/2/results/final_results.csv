@@ -1,0 +1,3 @@
+﻿Model,Parameters,Final_Test_Accuracy,Final_Test_Accuracy_Percent,Average_Epoch_Time,Model_Save_Path
+LSTM,2956292,0.9142105263157895,91.42105263157895,219.49863052368164,checkpoints/LSTM.pth
+GRU,2857476,0.9119736842105263,91.19736842105263,161.1039824962616,checkpoints/GRU.pth

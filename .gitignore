@@ -1,3 +1,4 @@
 data/
 __pycache__/
 *.pth
+wait_then_cgan*

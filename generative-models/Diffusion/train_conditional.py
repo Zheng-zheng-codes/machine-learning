@@ -21,7 +21,7 @@ batch_size = 64
 num_epochs = 100
 lr = 1e-4
 
-noise_steps = 300
+noise_steps = 1000
 img_size = 32
 img_channels = 3
 

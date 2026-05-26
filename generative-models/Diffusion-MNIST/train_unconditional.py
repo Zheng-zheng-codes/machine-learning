@@ -18,10 +18,10 @@ output_dir = "results_unconditional"
 checkpoint_dir = "checkpoints_unconditional"
 
 batch_size = 128
-num_epochs = 100
+num_epochs = 50
 lr = 1e-4
 
-noise_steps = 200
+noise_steps = 1000
 img_size = 28
 img_channels = 1
 

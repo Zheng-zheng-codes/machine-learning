@@ -18,15 +18,15 @@ output_dir = "results_cifar_unconditional"
 checkpoint_dir = "checkpoints_cifar_unconditional"
 
 batch_size = 64
-num_epochs = 200
+num_epochs = 100
 lr = 1e-4
 
-noise_steps = 300
+noise_steps = 200
 img_size = 32
 img_channels = 3
 
 sample_interval = 20
-checkpoint_interval = 50
+checkpoint_interval = 20
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

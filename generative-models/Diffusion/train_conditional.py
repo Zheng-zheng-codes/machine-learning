@@ -26,9 +26,9 @@ img_size = 32
 img_channels = 3
 
 num_classes = 10
-samples_per_class = 4
+samples_per_class = 8
 
-sample_interval = 20
+sample_interval = 1
 checkpoint_interval = 20
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

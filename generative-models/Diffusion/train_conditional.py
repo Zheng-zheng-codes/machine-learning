@@ -18,7 +18,7 @@ output_dir = "results_cifar_conditional"
 checkpoint_dir = "checkpoints_cifar_conditional"
 
 batch_size = 64
-num_epochs = 100
+num_epochs = 50
 lr = 1e-4
 
 noise_steps = 1000
